@@ -2,6 +2,7 @@ import express from 'express'
 import dotenv from 'dotenv'
 import { connectDB } from './config/db.js'
 import userRoutes  from './routes/userRoutes.js'
+import cookieParser from 'cookie-parser'
 
 
 dotenv.config()
@@ -9,6 +10,7 @@ dotenv.config()
 const app  =  express()
 
 app.use(express.json())
+app.use(cookieParser())
 
 const PORT =  process.env.PORT || 5000
 

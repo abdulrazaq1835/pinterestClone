@@ -80,7 +80,74 @@ export const loginUser = async (req, res) => {
 
 export const myProfile = async (req, res) => {
   try {
-    const user = User.findById(req.user.id);
-    res.json(user)
-  } catch (error) {}
+   
+    res.json({
+      success: true,
+      user: req.user
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
 };
+
+
+export const userProfile =  async (req,res)=>{
+
+  const user  = await User.findById(req.params.id).select("-password")
+  res.json(user)
+
+}
+
+export const followerAndflollowing = async (req,res)=>{
+
+  try {
+
+    const user = await  User.findById(req.params.id)
+    const loggInUser =  await User.findById(req.user.id)
+
+    if(!user){
+      return res.status(400).json({message:"User not present with this id"})
+    }
+
+    if(user.id.toString() === loggInUser.id.toString()){
+      res.status(404).json({message:"You Can't Follow YourSelf"})
+    }
+
+    if(user.followers.includes(loggInUser.id)){
+      const indexFollowing = loggInUser.following.indexOf(user.id)
+      const indexFollowers =  user.followers.indexOf(loggInUser.id)
+
+      loggInUser.following.splice(indexFollowing,1)
+      user.followers.splice(indexFollowers,1)
+
+      await  loggInUser.save()
+      await user.save()
+       res.json({message:"User Unfollowed"})
+    }else{
+      loggInUser.following.push(user.id)
+      user.followers.push(loggInUser.id)
+      await  loggInUser.save()
+      await user.save()
+       res.json({message:"User followed"})
+    }
+
+   
+    
+  } catch (error) {
+    res.status(500).json({message:"Internal server error "})
+  }
+}
+
+
+
+export const logOut  = async (req,res)=>{
+  try {
+    res.cookie("token",{maxAge:0})
+
+    res.json({message:"Logged out successfully"})
+
+  } catch (error) {
+      console.log(error)
+  }
+
+}
