@@ -15,7 +15,7 @@ const schema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    resetOTP: String,
+    resetOTP: Number,
     resetOTPExpire: Date,
 
     followers: [

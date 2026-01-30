@@ -2,6 +2,7 @@ import { User } from "../models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import transporter from "../config/mailer.js";
 
 dotenv.config();
 
@@ -80,74 +81,93 @@ export const loginUser = async (req, res) => {
 
 export const myProfile = async (req, res) => {
   try {
-   
     res.json({
       success: true,
-      user: req.user
+      user: req.user,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
 };
 
+export const userProfile = async (req, res) => {
+  const user = await User.findById(req.params.id).select("-password");
+  res.json(user);
+};
 
-export const userProfile =  async (req,res)=>{
-
-  const user  = await User.findById(req.params.id).select("-password")
-  res.json(user)
-
-}
-
-export const followerAndflollowing = async (req,res)=>{
-
+export const followerAndflollowing = async (req, res) => {
   try {
+    const user = await User.findById(req.params.id);
+    const loggInUser = await User.findById(req.user.id);
 
-    const user = await  User.findById(req.params.id)
-    const loggInUser =  await User.findById(req.user.id)
-
-    if(!user){
-      return res.status(400).json({message:"User not present with this id"})
+    if (!user) {
+      return res.status(400).json({ message: "User not present with this id" });
     }
 
-    if(user.id.toString() === loggInUser.id.toString()){
-      res.status(404).json({message:"You Can't Follow YourSelf"})
+    if (user.id.toString() === loggInUser.id.toString()) {
+      res.status(404).json({ message: "You Can't Follow YourSelf" });
     }
 
-    if(user.followers.includes(loggInUser.id)){
-      const indexFollowing = loggInUser.following.indexOf(user.id)
-      const indexFollowers =  user.followers.indexOf(loggInUser.id)
+    if (user.followers.includes(loggInUser.id)) {
+      const indexFollowing = loggInUser.following.indexOf(user.id);
+      const indexFollowers = user.followers.indexOf(loggInUser.id);
 
-      loggInUser.following.splice(indexFollowing,1)
-      user.followers.splice(indexFollowers,1)
+      loggInUser.following.splice(indexFollowing, 1);
+      user.followers.splice(indexFollowers, 1);
 
-      await  loggInUser.save()
-      await user.save()
-       res.json({message:"User Unfollowed"})
-    }else{
-      loggInUser.following.push(user.id)
-      user.followers.push(loggInUser.id)
-      await  loggInUser.save()
-      await user.save()
-       res.json({message:"User followed"})
+      await loggInUser.save();
+      await user.save();
+      res.json({ message: "User Unfollowed" });
+    } else {
+      loggInUser.following.push(user.id);
+      user.followers.push(loggInUser.id);
+      await loggInUser.save();
+      await user.save();
+      res.json({ message: "User followed" });
     }
-
-   
-    
   } catch (error) {
-    res.status(500).json({message:"Internal server error "})
+    res.status(500).json({ message: "Internal server error " });
   }
-}
+};
 
-
-
-export const logOut  = async (req,res)=>{
+export const logOut = async (req, res) => {
   try {
-    res.cookie("token",{maxAge:0})
+    res.cookie("token", { maxAge: 0 });
 
-    res.json({message:"Logged out successfully"})
-
+    res.json({ message: "Logged out successfully" });
   } catch (error) {
-      console.log(error)
+    console.log(error);
   }
+};
 
-}
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+       return res.status(400).json({ message: "User Doesn't Exists" });
+    }
+
+    const otpGenerate = Math.floor(100000 + Math.random() * 900000);
+
+    user.resetOTP = otpGenerate;
+
+    user.resetOTPExpire = Date.now() + 10 * 60 * 1000;
+
+    await user.save();
+
+    await transporter.sendMail({
+      from:process.env.EMAIL,
+      to: user.email,
+      subject: "Password Reset Otp",
+      text: `your OTP is ${otpGenerate}. It is valid for 10 minutes.`,
+    });
+     return res.status(200).json({ message: "OTP sent to email" });
+  } catch (error) {
+    console.log(error.message)
+     res.status(500).json({ message: "Server error" });
+  }
+};
+
+
