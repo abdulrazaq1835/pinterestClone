@@ -146,10 +146,10 @@ export const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
 
     if (!user) {
-       return res.status(400).json({ message: "User Doesn't Exists" });
+      return res.status(400).json({ message: "User Doesn't Exists" });
     }
 
-    const otpGenerate = Math.floor(100000 + Math.random() * 900000);
+    const otpGenerate = Math.floor(100000 + Math.random() * 900000).toString();
 
     user.resetOTP = otpGenerate;
 
@@ -158,16 +158,46 @@ export const forgotPassword = async (req, res) => {
     await user.save();
 
     await transporter.sendMail({
-      from:process.env.EMAIL,
+      from: process.env.EMAIL,
       to: user.email,
       subject: "Password Reset Otp",
       text: `your OTP is ${otpGenerate}. It is valid for 10 minutes.`,
     });
-     return res.status(200).json({ message: "OTP sent to email" });
+    return res.status(200).json({ message: "OTP sent to email" });
   } catch (error) {
-    console.log(error.message)
-     res.status(500).json({ message: "Server error" });
+    console.log(error.message);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, newPassword, otpGenerate } = req.body;
 
+    if (!email || !newPassword || !otpGenerate) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User doesn't Exists" });
+    }
+
+    if (user.resetOTP !== otpGenerate || user.resetOTPExpire < Date.now()) {
+      return res.status(400).json({ message: "Invalid Credentials" });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    user.resetOTP = undefined;
+    user.resetOTPExpire = undefined;
+
+    await user.save();
+
+    res.json({ message: "Password reset successful" });
+  } catch (error) {
+    console.log("error", error);
+  }
+};
